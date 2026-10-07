@@ -13,11 +13,13 @@ Es la versión móvil de nuestro proyecto de grado [RitmoApp](https://github.com
 
 - Catálogo de clases del estudiante con los cupos disponibles.
 - Reservar y cancelar un cupo. El contador baja y sube, y si una clase se queda sin cupos el botón se desactiva.
+- Arquitectura MVVM: `CatalogoViewModel` guarda el estado y las reglas de cupos, y `CatalogoScreen` solo dibuja. Las reservas no se pierden al girar el celular.
+- Pruebas unitarias del ViewModel (`app/src/test`).
 - Por ahora usa datos de prueba (`data/DatosDePrueba.kt`).
 
 ## Lo que sigue (según las sesiones del curso)
 
-- [ ] Separar la lógica en un ViewModel (MVVM)
+- [x] Separar la lógica en un ViewModel (MVVM)
 - [ ] Guardar las reservas en el celular con Room
 - [ ] Conectar con la API de RitmoApp usando Retrofit (`GET /api/clases`, `POST /api/reservas`)
 - [ ] Inicio de sesión y navegación entre pantallas (estudiante y profesor)
@@ -32,3 +34,5 @@ Kotlin, Jetpack Compose, Material 3. SDK mínimo: API 24 (Android 7.0).
 1. Abrir la carpeta en Android Studio.
 2. Esperar a que termine el Gradle Sync.
 3. Escoger un emulador o un celular conectado y darle Run (▶).
+
+Pruebas: `./gradlew testDebugUnitTest`
