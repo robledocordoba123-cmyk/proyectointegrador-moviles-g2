@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
@@ -38,6 +39,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.proyectointegrador_moviles_g2.data.Clase
+import com.example.proyectointegrador_moviles_g2.data.FechasApi
 import com.example.proyectointegrador_moviles_g2.data.clasesDePrueba
 import com.example.proyectointegrador_moviles_g2.ui.theme.Proyectointegradormovilesg2Theme
 
@@ -98,31 +100,46 @@ fun CatalogoContenido(
         },
         snackbarHost = { SnackbarHost(snackbar) }
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+        Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             if (uiState.cargando) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
-            if (!uiState.cargando && uiState.clases.isEmpty()) {
-                Text(
-                    "No hay clases próximas por ahora.",
-                    modifier = Modifier.align(Alignment.Center),
-                    textAlign = TextAlign.Center
+            // Fijo arriba, fuera de la lista, para que se vea aunque la lista esté bajada.
+            if (uiState.sinConexion) {
+                AvisoSinConexion(
+                    guardadoEn = uiState.guardadoEn,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)
                 )
             }
-            LazyColumn(
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(uiState.clases, key = { it.id }) { clase ->
-                    TarjetaClase(
-                        clase = clase,
-                        reservada = clase.id in uiState.reservadas,
-                        procesando = uiState.procesando == clase.id,
-                        onReservar = { onReservar(clase.id) },
-                        onCancelar = { onCancelar(clase.id) }
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                if (!uiState.cargando && uiState.clases.isEmpty()) {
+                    Text(
+                        "No hay clases próximas por ahora.",
+                        modifier = Modifier.align(Alignment.Center),
+                        textAlign = TextAlign.Center
                     )
                 }
+                ListaClases(uiState, onReservar, onCancelar)
             }
+        }
+    }
+}
+
+@Composable
+private fun ListaClases(uiState: CatalogoUiState, onReservar: (String) -> Unit, onCancelar: (String) -> Unit) {
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(uiState.clases, key = { it.id }) { clase ->
+            TarjetaClase(
+                clase = clase,
+                reservada = clase.id in uiState.reservadas,
+                procesando = uiState.procesando == clase.id,
+                habilitado = !uiState.sinConexion,
+                onReservar = { onReservar(clase.id) },
+                onCancelar = { onCancelar(clase.id) }
+            )
         }
     }
 }
@@ -133,7 +150,9 @@ fun TarjetaClase(
     reservada: Boolean,
     onReservar: () -> Unit,
     onCancelar: () -> Unit,
-    procesando: Boolean = false
+    procesando: Boolean = false,
+    // Sin internet no se puede reservar ni cancelar: la API es la que lleva los cupos.
+    habilitado: Boolean = true
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -165,10 +184,35 @@ fun TarjetaClase(
                 )
                 when {
                     procesando -> CircularProgressIndicator()
-                    reservada -> OutlinedButton(onClick = onCancelar) { Text("Cancelar") }
-                    else -> Button(onClick = onReservar, enabled = !sinCupos) { Text("Reservar") }
+                    reservada -> OutlinedButton(onClick = onCancelar, enabled = habilitado) { Text("Cancelar") }
+                    else -> Button(onClick = onReservar, enabled = habilitado && !sinCupos) { Text("Reservar") }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AvisoSinConexion(guardadoEn: Long?, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Sin conexión a internet",
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+            Text(
+                if (guardadoEn == null) {
+                    "Todavía no hay clases guardadas en este celular. Conéctate y toca Actualizar."
+                } else {
+                    "Mostrando lo guardado el ${FechasApi.fechaYHora(guardadoEn)} · Para reservar o cancelar necesitas internet."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
         }
     }
 }

@@ -169,6 +169,10 @@ object FechasApi {
         return "${dia.replaceFirstChar { it.uppercase() }} · ${hora.format(inicio)} a ${hora.format(fin)}"
     }
 
+    // "13 oct, 3:45 p. m."
+    fun fechaYHora(millis: Long): String =
+        SimpleDateFormat("d MMM, h:mm a", español).apply { timeZone = zonaColombia }.format(millis)
+
     fun esHoy(millis: Long, ahora: Long = System.currentTimeMillis()): Boolean {
         val formato = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { timeZone = zonaColombia }
         return formato.format(millis) == formato.format(ahora)

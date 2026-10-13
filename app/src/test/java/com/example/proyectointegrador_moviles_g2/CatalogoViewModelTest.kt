@@ -61,6 +61,35 @@ class CatalogoViewModelTest {
     }
 
     @Test
+    fun sinInternet_muestraLasClasesGuardadasYAvisa() {
+        val repo = RepositorioFalso(listOf(clase("1", 5)))
+        repo.reservas["1"] = "r-1"
+        repo.falla = "sin red"
+        repo.fallaDeRed = true
+
+        val viewModel = crear(repo)
+
+        val estado = viewModel.uiState.value
+        assertTrue(estado.sinConexion)
+        assertEquals(listOf("1"), estado.clases.map { it.id })
+        assertTrue("1" in estado.reservadas)
+        assertEquals(AHORA, estado.guardadoEn)
+    }
+
+    @Test
+    fun alVolverElInternet_seQuitaElAviso() {
+        val repo = RepositorioFalso(listOf(clase("1", 5)))
+        repo.falla = "sin red"
+        repo.fallaDeRed = true
+        val viewModel = crear(repo)
+
+        repo.falla = null
+        viewModel.cargar()
+
+        assertFalse(viewModel.uiState.value.sinConexion)
+    }
+
+    @Test
     fun siLaApiFalla_muestraSuMensaje() {
         val repo = RepositorioFalso(listOf(clase("1", 0)))
         val viewModel = crear(repo)
