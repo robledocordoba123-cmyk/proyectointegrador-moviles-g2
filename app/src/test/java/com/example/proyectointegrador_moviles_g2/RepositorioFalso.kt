@@ -49,6 +49,9 @@ class RepositorioFalso(clasesIniciales: List<Clase>) : RitmoRepositorio {
         Unit
     }
 
+    override suspend fun datosGuardados() =
+        com.example.proyectointegrador_moviles_g2.data.DatosGuardados(clases.toList(), reservas.toMap(), AHORA)
+
     override suspend fun inscritos(claseId: String) = resultado { inscritosPorClase[claseId].orEmpty() }
 
     override suspend fun registrarAsistencia(claseId: String, estados: Map<String, String>) = resultado {

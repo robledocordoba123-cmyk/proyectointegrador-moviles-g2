@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.proyectointegrador_moviles_g2.data.Clase
 import com.example.proyectointegrador_moviles_g2.data.RitmoRepositorio
 import com.example.proyectointegrador_moviles_g2.data.ServiceLocator
+import com.example.proyectointegrador_moviles_g2.data.SinConexionException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +20,10 @@ data class CatalogoUiState(
     val cargando: Boolean = false,
     // Clase en la que se está reservando o cancelando, para bloquear su botón mientras responde la API.
     val procesando: String? = null,
-    val mensaje: String? = null
+    val mensaje: String? = null,
+    // Sin internet se muestran las clases guardadas en el celular y no se puede reservar.
+    val sinConexion: Boolean = false,
+    val guardadoEn: Long? = null
 ) {
     val reservadas: Set<String> get() = reservas.keys
 }
@@ -43,21 +47,39 @@ class CatalogoViewModel(
         viewModelScope.launch {
             val clases = repositorio.clases()
             val reservas = repositorio.misReservas()
-            _uiState.update { estado ->
-                val error = clases.exceptionOrNull() ?: reservas.exceptionOrNull()
-                if (error != null) {
-                    estado.copy(cargando = false, mensaje = error.message)
-                } else {
-                    estado.copy(
-                        // El estudiante solo ve las clases que todavía no empiezan.
-                        clases = clases.getOrThrow().filter { it.inicioMillis > ahora() },
+            val error = clases.exceptionOrNull() ?: reservas.exceptionOrNull()
+            when {
+                error is SinConexionException -> mostrarGuardado()
+                error != null -> _uiState.update { it.copy(cargando = false, mensaje = error.message) }
+                else -> _uiState.update {
+                    it.copy(
+                        clases = clases.getOrThrow().proximas(),
                         reservas = reservas.getOrThrow(),
-                        cargando = false
+                        cargando = false,
+                        sinConexion = false,
+                        guardadoEn = null
                     )
                 }
             }
         }
     }
+
+    // Modo sin internet: lo último que se guardó en el celular (Room).
+    private suspend fun mostrarGuardado() {
+        val guardado = repositorio.datosGuardados()
+        _uiState.update {
+            it.copy(
+                clases = guardado.clases.proximas(),
+                reservas = guardado.reservas,
+                cargando = false,
+                sinConexion = true,
+                guardadoEn = guardado.guardadoEn
+            )
+        }
+    }
+
+    // El estudiante solo ve las clases que todavía no empiezan.
+    private fun List<Clase>.proximas() = filter { it.inicioMillis > ahora() }
 
     fun reservar(claseId: String) = ejecutar(claseId, "¡Listo! Tu cupo quedó reservado.") {
         repositorio.reservar(claseId)
