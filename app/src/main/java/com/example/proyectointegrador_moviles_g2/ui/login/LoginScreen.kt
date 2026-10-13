@@ -1,4 +1,4 @@
-package com.example.proyectointegrador_moviles_g2.ui.login
+﻿package com.example.proyectointegrador_moviles_g2.ui.login
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,8 +32,8 @@ import com.example.proyectointegrador_moviles_g2.data.usuariosDePrueba
 import com.example.proyectointegrador_moviles_g2.data.validarCredenciales
 import com.example.proyectointegrador_moviles_g2.ui.theme.Proyectointegradormovilesg2Theme
 
-// Inicio de sesión (RF-02). Valida contra los usuarios de prueba y, según el rol,
-// la app abre el catálogo del estudiante o la pantalla del profesor.
+// Inicio de sesiÃ³n (RF-02). Valida contra los usuarios de prueba y, segÃºn el rol,
+// la app abre el catÃ¡logo del estudiante o la pantalla del profesor.
 @Composable
 fun LoginScreen(onIngresar: (Usuario) -> Unit) {
     var correo by rememberSaveable { mutableStateOf("") }
@@ -43,7 +43,7 @@ fun LoginScreen(onIngresar: (Usuario) -> Unit) {
     fun intentarIngreso(correoIngresado: String, claveIngresada: String) {
         val usuario = validarCredenciales(correoIngresado, claveIngresada)
         if (usuario == null) {
-            error = "Correo o contraseña incorrectos"
+            error = "Correo o contraseÃ±a incorrectos"
         } else {
             error = null
             onIngresar(usuario)
@@ -57,7 +57,12 @@ fun LoginScreen(onIngresar: (Usuario) -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("RitmoApp", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+        Text(
+            "RitmoApp",
+            style = MaterialTheme.typography.displaySmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
         Text(
             "Clases de baile en tu celular",
             style = MaterialTheme.typography.bodyLarge,
@@ -77,7 +82,7 @@ fun LoginScreen(onIngresar: (Usuario) -> Unit) {
         OutlinedTextField(
             value = clave,
             onValueChange = { clave = it },
-            label = { Text("Contraseña") },
+            label = { Text("ContraseÃ±a") },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -94,7 +99,7 @@ fun LoginScreen(onIngresar: (Usuario) -> Unit) {
             Text("Ingresar")
         }
 
-        // Acceso rápido para la demo, igual que en la web de RitmoApp.
+        // Acceso rÃ¡pido para la demo, igual que en la web de RitmoApp.
         Spacer(modifier = Modifier.height(28.dp))
         Text("Entrar con un usuario de prueba", style = MaterialTheme.typography.labelLarge)
         Spacer(modifier = Modifier.height(8.dp))
