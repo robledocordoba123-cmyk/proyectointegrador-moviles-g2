@@ -1,4 +1,4 @@
-﻿package com.example.proyectointegrador_moviles_g2.ui.login
+package com.example.proyectointegrador_moviles_g2.ui.login
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,13 +8,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -24,31 +27,34 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.proyectointegrador_moviles_g2.data.CLAVE_DE_PRUEBA
-import com.example.proyectointegrador_moviles_g2.data.Usuario
-import com.example.proyectointegrador_moviles_g2.data.usuariosDePrueba
-import com.example.proyectointegrador_moviles_g2.data.validarCredenciales
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.proyectointegrador_moviles_g2.data.CLAVE_DEMO
+import com.example.proyectointegrador_moviles_g2.data.CORREO_DEMO_ESTUDIANTE
+import com.example.proyectointegrador_moviles_g2.data.CORREO_DEMO_PROFESOR
+import com.example.proyectointegrador_moviles_g2.data.Sesion
 import com.example.proyectointegrador_moviles_g2.ui.theme.Proyectointegradormovilesg2Theme
 
-// Inicio de sesiÃ³n (RF-02). Valida contra los usuarios de prueba y, segÃºn el rol,
-// la app abre el catÃ¡logo del estudiante o la pantalla del profesor.
+// Inicio de sesión (RF-02). Según el rol que devuelve la API,
+// la app abre el catálogo del estudiante o la pantalla del profesor.
 @Composable
-fun LoginScreen(onIngresar: (Usuario) -> Unit) {
+fun LoginScreen(
+    onIngresar: (Sesion) -> Unit,
+    viewModel: LoginViewModel = viewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    LoginContenido(
+        uiState = uiState,
+        onIngresar = { correo, clave -> viewModel.ingresar(correo, clave, onIngresar) }
+    )
+}
+
+@Composable
+fun LoginContenido(uiState: LoginUiState, onIngresar: (String, String) -> Unit) {
     var correo by rememberSaveable { mutableStateOf("") }
     var clave by rememberSaveable { mutableStateOf("") }
-    var error by rememberSaveable { mutableStateOf<String?>(null) }
-
-    fun intentarIngreso(correoIngresado: String, claveIngresada: String) {
-        val usuario = validarCredenciales(correoIngresado, claveIngresada)
-        if (usuario == null) {
-            error = "Correo o contraseÃ±a incorrectos"
-        } else {
-            error = null
-            onIngresar(usuario)
-        }
-    }
 
     Column(
         modifier = Modifier
@@ -75,6 +81,7 @@ fun LoginScreen(onIngresar: (Usuario) -> Unit) {
             onValueChange = { correo = it },
             label = { Text("Correo") },
             singleLine = true,
+            enabled = !uiState.cargando,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             modifier = Modifier.fillMaxWidth()
         )
@@ -82,33 +89,53 @@ fun LoginScreen(onIngresar: (Usuario) -> Unit) {
         OutlinedTextField(
             value = clave,
             onValueChange = { clave = it },
-            label = { Text("ContraseÃ±a") },
+            label = { Text("Contraseña") },
             singleLine = true,
+            enabled = !uiState.cargando,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth()
         )
 
-        error?.let {
+        uiState.error?.let {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(it, color = MaterialTheme.colorScheme.error)
+            Text(it, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
         }
 
         Spacer(modifier = Modifier.height(20.dp))
-        Button(onClick = { intentarIngreso(correo, clave) }, modifier = Modifier.fillMaxWidth()) {
-            Text("Ingresar")
+        Button(
+            onClick = { onIngresar(correo, clave) },
+            enabled = !uiState.cargando,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (uiState.cargando) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+            } else {
+                Text("Ingresar")
+            }
+        }
+        if (uiState.cargando) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Conectando con el servidor. La primera vez puede tardar hasta un minuto.",
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center
+            )
         }
 
-        // Acceso rÃ¡pido para la demo, igual que en la web de RitmoApp.
+        // Acceso rápido con los usuarios de la academia de ejemplo, igual que en la web de RitmoApp.
         Spacer(modifier = Modifier.height(28.dp))
         Text("Entrar con un usuario de prueba", style = MaterialTheme.typography.labelLarge)
         Spacer(modifier = Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            usuariosDePrueba.forEach { usuario ->
-                OutlinedButton(onClick = { intentarIngreso(usuario.correo, CLAVE_DE_PRUEBA) }) {
-                    Text(usuario.rol.name.lowercase().replaceFirstChar { it.uppercase() })
-                }
-            }
+            OutlinedButton(
+                onClick = { onIngresar(CORREO_DEMO_ESTUDIANTE, CLAVE_DEMO) },
+                enabled = !uiState.cargando
+            ) { Text("Estudiante") }
+            OutlinedButton(
+                onClick = { onIngresar(CORREO_DEMO_PROFESOR, CLAVE_DEMO) },
+                enabled = !uiState.cargando
+            ) { Text("Profesor") }
         }
     }
 }
@@ -117,6 +144,6 @@ fun LoginScreen(onIngresar: (Usuario) -> Unit) {
 @Composable
 fun LoginPreview() {
     Proyectointegradormovilesg2Theme {
-        LoginScreen(onIngresar = {})
+        LoginContenido(uiState = LoginUiState(), onIngresar = { _, _ -> })
     }
 }

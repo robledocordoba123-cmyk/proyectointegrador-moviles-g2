@@ -11,25 +11,30 @@ Es la versión móvil de nuestro proyecto de grado [RitmoApp](https://github.com
 
 ## Estado actual
 
-- Catálogo de clases del estudiante con los cupos disponibles.
-- Reservar y cancelar un cupo. El contador baja y sube, y si una clase se queda sin cupos el botón se desactiva.
-- Arquitectura MVVM: `CatalogoViewModel` guarda el estado y las reglas de cupos, y `CatalogoScreen` solo dibuja. Las reservas no se pierden al girar el celular.
-- Pruebas unitarias del ViewModel (`app/src/test`).
-- Inicio de sesión con usuarios de prueba (estudiante y profesor), con acceso rápido para la demo.
-- Pantalla del profesor: ve sus clases y toma asistencia (Asistió, Falta, Excusa). Solo deja guardar cuando todos están marcados.
-- Por ahora usa datos de prueba (`data/DatosDePrueba.kt` y `data/Usuarios.kt`).
+- **Conectada a la API real de RitmoApp** (la misma de la web, desplegada en Render) con Retrofit. Lo que se reserva en la app aparece en la web y al revés.
+- Inicio de sesión real (`POST /api/auth/login`) con los usuarios de la academia de ejemplo, y acceso rápido como Estudiante o Profesor.
+- **Estudiante**: ve las clases que todavía no empiezan con sus cupos reales, reserva y cancela. Los mensajes de la API (por ejemplo, sin cupos o membresía vencida) se muestran en pantalla.
+- **Profesor**: ve sus clases desde hoy, abre una y toma asistencia (Asistió, Falta, Excusa) de los estudiantes que reservaron. La API solo deja registrarla el día de la clase.
+- Arquitectura MVVM con repositorio: las pantallas no conocen Retrofit, y las pruebas usan un repositorio falso.
+- Pruebas unitarias de los ViewModels (`app/src/test`).
 
 ## Lo que sigue (según las sesiones del curso)
 
 - [x] Separar la lógica en un ViewModel (MVVM)
-- [ ] Guardar las reservas en el celular con Room
-- [ ] Conectar con la API de RitmoApp usando Retrofit (`GET /api/clases`, `POST /api/reservas`)
+- [ ] Guardar las clases en el celular con Room para verlas sin internet
+- [ ] Inyección de dependencias con Hilt (reemplaza el ServiceLocator)
+- [ ] Navegación con Navigation Compose
+- [x] Conectar con la API de RitmoApp usando Retrofit
 - [x] Inicio de sesión y pantallas por rol (estudiante y profesor)
 - [x] Pantalla del profesor para tomar asistencia
 
 ## Tecnologías
 
 Kotlin, Jetpack Compose, Material 3. SDK mínimo: API 24 (Android 7.0).
+
+## Usuarios de prueba
+
+Contraseña para todos: `Prueba123!`. Estudiante: `estudiante@ritmocentral.test`. Profesor: `profesor@ritmocentral.test`. La API está en un plan gratuito que se apaga sin uso, así que el primer ingreso puede tardar cerca de un minuto.
 
 ## Cómo correrla
 
