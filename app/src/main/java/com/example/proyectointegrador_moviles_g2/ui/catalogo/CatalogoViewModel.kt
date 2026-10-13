@@ -1,57 +1,89 @@
 package com.example.proyectointegrador_moviles_g2.ui.catalogo
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.proyectointegrador_moviles_g2.data.Clase
-import com.example.proyectointegrador_moviles_g2.data.clasesDePrueba
+import com.example.proyectointegrador_moviles_g2.data.RitmoRepositorio
+import com.example.proyectointegrador_moviles_g2.data.ServiceLocator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 // Todo lo que la pantalla del catálogo necesita para dibujarse.
 data class CatalogoUiState(
     val clases: List<Clase> = emptyList(),
-    val reservadas: Set<String> = emptySet()
-)
+    // claseId -> reservaId de las clases que el estudiante ya reservó.
+    val reservas: Map<String, String> = emptyMap(),
+    val cargando: Boolean = false,
+    // Clase en la que se está reservando o cancelando, para bloquear su botón mientras responde la API.
+    val procesando: String? = null,
+    val mensaje: String? = null
+) {
+    val reservadas: Set<String> get() = reservas.keys
+}
 
-// El ViewModel guarda el estado y las reglas del catálogo (RF-06).
-// La pantalla solo lo observa y le avisa cuando el estudiante toca un botón.
-// Como el ViewModel sobrevive a la rotación del celular, las reservas no se pierden.
-class CatalogoViewModel : ViewModel() {
+// El ViewModel trae las clases de la API y aplica la reserva y la cancelación (RF-06).
+// Las reglas de cupos las valida el servidor; aquí se muestra su respuesta.
+class CatalogoViewModel(
+    private val repositorio: RitmoRepositorio = ServiceLocator.repositorio,
+    private val ahora: () -> Long = System::currentTimeMillis
+) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(CatalogoUiState(clases = clasesDePrueba))
+    private val _uiState = MutableStateFlow(CatalogoUiState())
     val uiState: StateFlow<CatalogoUiState> = _uiState.asStateFlow()
 
-    fun reservar(claseId: String) {
-        _uiState.update { estado ->
-            val clase = estado.clases.find { it.id == claseId }
-            // RN-01: no se reserva si no quedan cupos o si ya la tiene reservada.
-            if (clase == null || clase.cuposDisponibles == 0 || claseId in estado.reservadas) {
-                estado
-            } else {
-                estado.copy(
-                    clases = estado.clases.cambiarCupos(claseId, -1),
-                    reservadas = estado.reservadas + claseId
-                )
+    init {
+        cargar()
+    }
+
+    fun cargar() {
+        _uiState.update { it.copy(cargando = true) }
+        viewModelScope.launch {
+            val clases = repositorio.clases()
+            val reservas = repositorio.misReservas()
+            _uiState.update { estado ->
+                val error = clases.exceptionOrNull() ?: reservas.exceptionOrNull()
+                if (error != null) {
+                    estado.copy(cargando = false, mensaje = error.message)
+                } else {
+                    estado.copy(
+                        // El estudiante solo ve las clases que todavía no empiezan.
+                        clases = clases.getOrThrow().filter { it.inicioMillis > ahora() },
+                        reservas = reservas.getOrThrow(),
+                        cargando = false
+                    )
+                }
             }
         }
+    }
+
+    fun reservar(claseId: String) = ejecutar(claseId, "¡Listo! Tu cupo quedó reservado.") {
+        repositorio.reservar(claseId)
     }
 
     fun cancelar(claseId: String) {
-        _uiState.update { estado ->
-            if (claseId !in estado.reservadas) {
-                estado
-            } else {
-                // Al cancelar, el cupo queda libre para otro estudiante.
-                estado.copy(
-                    clases = estado.clases.cambiarCupos(claseId, +1),
-                    reservadas = estado.reservadas - claseId
-                )
-            }
+        val reservaId = _uiState.value.reservas[claseId] ?: return
+        ejecutar(claseId, "Reserva cancelada. El cupo quedó libre.") {
+            repositorio.cancelarReserva(reservaId)
         }
     }
 
-    private fun List<Clase>.cambiarCupos(claseId: String, cambio: Int) = map {
-        if (it.id == claseId) it.copy(cuposDisponibles = it.cuposDisponibles + cambio) else it
+    fun mensajeMostrado() {
+        _uiState.update { it.copy(mensaje = null) }
+    }
+
+    // Llama a la API, muestra el resultado y vuelve a cargar para ver los cupos reales.
+    private fun ejecutar(claseId: String, exito: String, accion: suspend () -> Result<Unit>) {
+        if (_uiState.value.procesando != null) return
+        _uiState.update { it.copy(procesando = claseId) }
+        viewModelScope.launch {
+            val resultado = accion()
+            _uiState.update {
+                it.copy(procesando = null, mensaje = resultado.exceptionOrNull()?.message ?: exito)
+            }
+            cargar()
+        }
     }
 }
