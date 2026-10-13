@@ -15,15 +15,17 @@ Es la versión móvil de nuestro proyecto de grado [RitmoApp](https://github.com
 - Reservar y cancelar un cupo. El contador baja y sube, y si una clase se queda sin cupos el botón se desactiva.
 - Arquitectura MVVM: `CatalogoViewModel` guarda el estado y las reglas de cupos, y `CatalogoScreen` solo dibuja. Las reservas no se pierden al girar el celular.
 - Pruebas unitarias del ViewModel (`app/src/test`).
-- Por ahora usa datos de prueba (`data/DatosDePrueba.kt`).
+- Inicio de sesión con usuarios de prueba (estudiante y profesor), con acceso rápido para la demo.
+- Pantalla del profesor: ve sus clases y toma asistencia (Asistió, Falta, Excusa). Solo deja guardar cuando todos están marcados.
+- Por ahora usa datos de prueba (`data/DatosDePrueba.kt` y `data/Usuarios.kt`).
 
 ## Lo que sigue (según las sesiones del curso)
 
 - [x] Separar la lógica en un ViewModel (MVVM)
 - [ ] Guardar las reservas en el celular con Room
 - [ ] Conectar con la API de RitmoApp usando Retrofit (`GET /api/clases`, `POST /api/reservas`)
-- [ ] Inicio de sesión y navegación entre pantallas (estudiante y profesor)
-- [ ] Pantalla del profesor para tomar asistencia
+- [x] Inicio de sesión y pantallas por rol (estudiante y profesor)
+- [x] Pantalla del profesor para tomar asistencia
 
 ## Tecnologías
 
