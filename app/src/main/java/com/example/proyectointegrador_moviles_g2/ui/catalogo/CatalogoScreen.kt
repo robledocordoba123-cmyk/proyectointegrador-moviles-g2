@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -34,12 +35,16 @@ import com.example.proyectointegrador_moviles_g2.ui.theme.Proyectointegradormovi
 
 // Conecta la pantalla con su ViewModel.
 @Composable
-fun CatalogoScreen(viewModel: CatalogoViewModel = viewModel()) {
+fun CatalogoScreen(
+    onCerrarSesion: () -> Unit,
+    viewModel: CatalogoViewModel = viewModel()
+) {
     val uiState by viewModel.uiState.collectAsState()
     CatalogoContenido(
         uiState = uiState,
         onReservar = viewModel::reservar,
-        onCancelar = viewModel::cancelar
+        onCancelar = viewModel::cancelar,
+        onCerrarSesion = onCerrarSesion
     )
 }
 
@@ -49,11 +54,17 @@ fun CatalogoScreen(viewModel: CatalogoViewModel = viewModel()) {
 fun CatalogoContenido(
     uiState: CatalogoUiState,
     onReservar: (String) -> Unit,
-    onCancelar: (String) -> Unit
+    onCancelar: (String) -> Unit,
+    onCerrarSesion: () -> Unit = {}
 ) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        topBar = { TopAppBar(title = { Text("RitmoApp · Clases") }) }
+        topBar = {
+            TopAppBar(
+                title = { Text("RitmoApp · Clases") },
+                actions = { TextButton(onClick = onCerrarSesion) { Text("Salir") } }
+            )
+        }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier.padding(innerPadding),
