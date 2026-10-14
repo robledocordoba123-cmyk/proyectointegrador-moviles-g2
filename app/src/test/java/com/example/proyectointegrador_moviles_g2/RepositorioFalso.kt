@@ -5,6 +5,8 @@ import com.example.proyectointegrador_moviles_g2.data.Inscrito
 import com.example.proyectointegrador_moviles_g2.data.RitmoRepositorio
 import com.example.proyectointegrador_moviles_g2.data.Rol
 import com.example.proyectointegrador_moviles_g2.data.Sesion
+import com.example.proyectointegrador_moviles_g2.data.SinConexionException
+import com.example.proyectointegrador_moviles_g2.data.DatosGuardados
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -20,11 +22,16 @@ class RepositorioFalso(clasesIniciales: List<Clase>) : RitmoRepositorio {
     val clases = clasesIniciales.toMutableList()
     val reservas = mutableMapOf<String, String>() // claseId -> reservaId
     var falla: String? = null
+    // Si es true, la falla se comporta como si se hubiera caído el internet.
+    var fallaDeRed = false
     var asistenciaEnviada: Map<String, String>? = null
     var inscritosPorClase: Map<String, List<Inscrito>> = emptyMap()
 
-    private fun <T> resultado(valor: () -> T): Result<T> =
-        falla?.let { Result.failure(Exception(it)) } ?: Result.success(valor())
+    private fun <T> resultado(valor: () -> T): Result<T> = when {
+        falla == null -> Result.success(valor())
+        fallaDeRed -> Result.failure(SinConexionException())
+        else -> Result.failure(Exception(falla))
+    }
 
     override suspend fun iniciarSesion(correo: String, clave: String) =
         resultado { Sesion("u1", "Estudiante Demo", Rol.ESTUDIANTE, "token") }
@@ -48,6 +55,9 @@ class RepositorioFalso(clasesIniciales: List<Clase>) : RitmoRepositorio {
         reservas.remove(claseId)
         Unit
     }
+
+    override suspend fun datosGuardados() =
+        DatosGuardados(clases.toList(), reservas.toMap(), AHORA)
 
     override suspend fun inscritos(claseId: String) = resultado { inscritosPorClase[claseId].orEmpty() }
 

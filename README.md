@@ -15,13 +15,17 @@ Es la versión móvil de nuestro proyecto de grado [RitmoApp](https://github.com
 - Inicio de sesión real (`POST /api/auth/login`) con los usuarios de la academia de ejemplo, y acceso rápido como Estudiante o Profesor.
 - **Estudiante**: ve las clases que todavía no empiezan con sus cupos reales, reserva y cancela. Los mensajes de la API (por ejemplo, sin cupos o membresía vencida) se muestran en pantalla.
 - **Profesor**: ve sus clases desde hoy, abre una y toma asistencia (Asistió, Falta, Excusa) de los estudiantes que reservaron. La API solo deja registrarla el día de la clase.
+- **Modo sin internet** (Room): la app guarda en el celular las clases y reservas de cada usuario. Si se cae la señal, muestra lo último guardado con un aviso y desactiva reservar y cancelar.
 - Arquitectura MVVM con repositorio: las pantallas no conocen Retrofit, y las pruebas usan un repositorio falso.
 - Pruebas unitarias de los ViewModels (`app/src/test`).
 
 ## Lo que sigue (según las sesiones del curso)
 
 - [x] Separar la lógica en un ViewModel (MVVM)
-- [ ] Guardar las clases en el celular con Room para verlas sin internet
+- [x] Guardar las clases en el celular con Room para verlas sin internet
+- [ ] Recordatorio con notificación antes de la clase
+- [ ] Agregar la clase al calendario y compartirla
+- [ ] Asistencia con código QR (cámara)
 - [ ] Inyección de dependencias con Hilt (reemplaza el ServiceLocator)
 - [ ] Navegación con Navigation Compose
 - [x] Conectar con la API de RitmoApp usando Retrofit

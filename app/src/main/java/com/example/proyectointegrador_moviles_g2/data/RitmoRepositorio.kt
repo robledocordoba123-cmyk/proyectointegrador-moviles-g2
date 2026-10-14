@@ -1,5 +1,10 @@
 package com.example.proyectointegrador_moviles_g2.data
 
+import com.example.proyectointegrador_moviles_g2.data.local.ReservaEntity
+import com.example.proyectointegrador_moviles_g2.data.local.RitmoDao
+import com.example.proyectointegrador_moviles_g2.data.local.RitmoDatabase
+import com.example.proyectointegrador_moviles_g2.data.local.aClase
+import com.example.proyectointegrador_moviles_g2.data.local.aEntidad
 import com.example.proyectointegrador_moviles_g2.data.remote.ApiClient
 import com.example.proyectointegrador_moviles_g2.data.remote.AsistenciaRequest
 import com.example.proyectointegrador_moviles_g2.data.remote.ClaseDto
@@ -8,6 +13,7 @@ import com.example.proyectointegrador_moviles_g2.data.remote.LoginRequest
 import com.example.proyectointegrador_moviles_g2.data.remote.RegistroAsistencia
 import com.example.proyectointegrador_moviles_g2.data.remote.ReservarRequest
 import com.example.proyectointegrador_moviles_g2.data.remote.RitmoApi
+import android.content.Context
 import com.google.gson.Gson
 import retrofit2.HttpException
 import java.io.IOException
@@ -28,9 +34,30 @@ interface RitmoRepositorio {
     suspend fun cancelarReserva(reservaId: String): Result<Unit>
     suspend fun inscritos(claseId: String): Result<List<Inscrito>>
     suspend fun registrarAsistencia(claseId: String, estados: Map<String, String>): Result<Unit>
+
+    // Lo último que se guardó en el celular, para mostrarlo cuando no hay internet.
+    suspend fun datosGuardados(): DatosGuardados
 }
 
-class RitmoRepositorioApi(private val api: RitmoApi = ApiClient.api) : RitmoRepositorio {
+data class DatosGuardados(
+    val clases: List<Clase>,
+    val reservas: Map<String, String>,
+    // Cuándo se guardaron (milisegundos), o null si todavía no hay nada guardado.
+    val guardadoEn: Long?
+)
+
+// Falla de red: no se pudo hablar con el servidor. Los ViewModels la usan para pasar a modo sin internet.
+class SinConexionException :
+    Exception("No hay conexión con el servidor. Revisa el internet e intenta de nuevo.")
+
+class RitmoRepositorioApi(
+    private val dao: RitmoDao,
+    private val api: RitmoApi = ApiClient.api,
+    private val ahora: () -> Long = System::currentTimeMillis
+) : RitmoRepositorio {
+
+    // Usuario de la sesión actual: las copias guardadas se separan por usuario.
+    private var usuarioId: String? = null
 
     override suspend fun iniciarSesion(correo: String, clave: String): Result<Sesion> = llamar {
         val respuesta = api.login(LoginRequest(correo.trim(), clave))
@@ -40,19 +67,39 @@ class RitmoRepositorioApi(private val api: RitmoApi = ApiClient.api) : RitmoRepo
             else -> throw RolNoSoportado()
         }
         ApiClient.token = respuesta.token
+        usuarioId = respuesta.usuario.id
         Sesion(respuesta.usuario.id, respuesta.usuario.nombre, rol, respuesta.token)
     }
 
     override fun cerrarSesion() {
         ApiClient.token = null
+        usuarioId = null
     }
 
-    override suspend fun clases(): Result<List<Clase>> = llamar { api.clases().map { it.aClase() } }
+    override suspend fun clases(): Result<List<Clase>> = llamar {
+        val clases = api.clases().map { it.aClase() }
+        usuarioId?.let { id -> dao.reemplazarClases(id, clases.map { it.aEntidad(id, ahora()) }) }
+        clases
+    }
 
     override suspend fun misReservas(): Result<Map<String, String>> = llamar {
-        api.misReservas()
+        val reservas = api.misReservas()
             .filter { it.estado == "CONFIRMADA" }
             .associate { it.claseId to it.id }
+        usuarioId?.let { id ->
+            dao.reemplazarReservas(id, reservas.map { (claseId, reservaId) -> ReservaEntity(id, claseId, reservaId) })
+        }
+        reservas
+    }
+
+    override suspend fun datosGuardados(): DatosGuardados {
+        val id = usuarioId ?: return DatosGuardados(emptyList(), emptyMap(), null)
+        val clases = dao.clases(id)
+        return DatosGuardados(
+            clases = clases.map { it.aClase() },
+            reservas = dao.reservas(id).associate { it.claseId to it.reservaId },
+            guardadoEn = clases.maxOfOrNull { it.guardadaEn }
+        )
     }
 
     override suspend fun reservar(claseId: String): Result<Unit> = llamar {
@@ -81,7 +128,7 @@ class RitmoRepositorioApi(private val api: RitmoApi = ApiClient.api) : RitmoRepo
             ?.let { runCatching { Gson().fromJson(it, ErrorDto::class.java).error }.getOrNull() }
         Result.failure(Exception(mensajeApi ?: "El servidor respondió con un error (${e.code()})."))
     } catch (e: IOException) {
-        Result.failure(Exception("No hay conexión con el servidor. Revisa el internet e intenta de nuevo."))
+        Result.failure(SinConexionException())
     } catch (e: RolNoSoportado) {
         Result.failure(Exception(e.message))
     }
@@ -122,6 +169,10 @@ object FechasApi {
         return "${dia.replaceFirstChar { it.uppercase() }} · ${hora.format(inicio)} a ${hora.format(fin)}"
     }
 
+    // "13 oct, 3:45 p. m."
+    fun fechaYHora(millis: Long): String =
+        SimpleDateFormat("d MMM, h:mm a", español).apply { timeZone = zonaColombia }.format(millis)
+
     fun esHoy(millis: Long, ahora: Long = System.currentTimeMillis()): Boolean {
         val formato = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { timeZone = zonaColombia }
         return formato.format(millis) == formato.format(ahora)
@@ -130,7 +181,15 @@ object FechasApi {
 
 // Un solo repositorio para toda la app (en la sesión 6 se reemplaza por inyección con Hilt).
 object ServiceLocator {
-    val repositorio: RitmoRepositorio by lazy { RitmoRepositorioApi() }
+    lateinit var repositorio: RitmoRepositorio
+        private set
+
+    // Se llama una vez al abrir la app (RitmoApplication), porque la base de datos necesita el Context.
+    fun iniciar(context: Context) {
+        if (!::repositorio.isInitialized) {
+            repositorio = RitmoRepositorioApi(RitmoDatabase.crear(context.applicationContext).dao())
+        }
+    }
 }
 
 private class RolNoSoportado : Exception("La app es para estudiantes y profesores. Los administradores usan la web.")
